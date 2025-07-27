@@ -1,0 +1,83 @@
+import customtkinter as ctk
+import asyncio
+from random import randint
+from PIL import Image
+import requests
+import os
+from time import sleep
+import torch
+torch.cuda.empty_cache()
+# Define functions for image generation
+def open_images(prompt):
+    folder_path = r"C:\Users\GhosT\Desktop\main files"
+    prompt = prompt.replace(" ", "_")
+    
+    Files = [f"{prompt}{i}.jpg" for i in range(1, 5)]
+    
+    for jpg_file in Files:
+        image_path = os.path.join(folder_path, jpg_file)
+        
+        try:
+            img = Image.open(image_path)
+            print(f"Opening image: {image_path}")
+            img.show()
+            sleep(1)
+        
+        except IOError:
+            print(f"Unable to open {image_path}")
+               
+API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
+headers = {"Authorization": "Bearer api"}
+
+async def query(payload):
+    response = await asyncio.to_thread(requests.post, API_URL, headers=headers, json=payload)
+    return response.content
+
+async def generate_images(prompt: str):
+    tasks = []
+    
+    for _ in range(4):
+        payload = {
+            "inputs": f"{prompt}, quality-4K, sharpness = maximum, Ultra High details, high resolution, seed = {randint(0, 1000000)}",
+        }
+        task = asyncio.create_task(query(payload))
+        tasks.append(task)
+        
+    image_bytes_list = await asyncio.gather(*tasks)
+    
+    for i, image_bytes in enumerate(image_bytes_list):
+        with open(fr"C:\Users\GhosT\Desktop\main files\{prompt.replace(' ', '_')}{i + 1}.jpg", "wb") as f:
+            f.write(image_bytes)
+
+def GenerateImages(prompt: str):
+    asyncio.run(generate_images(prompt))
+    open_images(prompt)
+
+# Create the UI using customtkinter
+def create_ui():
+    def on_generate():
+        prompt = entry_prompt.get()
+        if prompt.strip():
+            print("Generating Images ... ")
+            GenerateImages(prompt=prompt.strip())
+        else:
+            print("Please enter a valid prompt")
+
+    app = ctk.CTk()
+    app.geometry("400x200")
+    app.title("Image Generator")
+
+    label = ctk.CTkLabel(app, text="Enter image prompt:")
+    label.pack(pady=10)
+
+    entry_prompt = ctk.CTkEntry(app, width=300)
+    entry_prompt.pack(pady=10)
+
+    button_generate = ctk.CTkButton(app, text="Generate", command=on_generate)
+    button_generate.pack(pady=10)
+
+    app.mainloop()
+
+# Run the UI
+if __name__ == "__main__":
+    create_ui()
